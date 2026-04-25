@@ -1,4 +1,4 @@
-# 🍥 ice-study
+# 🍥 xxt
 
 - 超星学习通自动化完成任务点(跨端命令行)
 - 萌新零基础学习实验代码
@@ -17,7 +17,7 @@
 
 # :warning: 免责声明
 
-- 本代码遵循 [GPL-3.0 License](https://github.com/cyear/ice-study/blob/main/LICENSE)协议
+- 本代码遵循 [GPL-3.0 License](https://github.com/Jianqing-Lin/xxt/blob/main/LICENSE)协议
 - 本代码仅用于**学习测试**，禁止**用于盈利等**
 - 他人或组织使用本代码进行的任何**违法行为**与本人无关
 
@@ -47,9 +47,9 @@
 
 必要环境: **? Python>=3.6**
 
-    git clone https://github.com/cyear/ice-study
+    git clone https://github.com/Jianqing-Lin/xxt
 
-    cd ice-study && pip install -r requirements.txt
+    cd xxt && pip install -r requirements.txt
 
     python3 main.py
 
@@ -63,9 +63,8 @@
 
     QQ: 556766602(请仔细阅读置顶群公告所有条目，网络非法外之地)
 
-##
-[![Ashutosh's github activity graph](https://github-readme-activity-graph.cyclic.app/graph?username=cyear&theme=react-dark&color=#ffffff)](https://github-readme-activity-graph.cyclic.app/graph?username=cyear&theme=react-dark&color=#ffffff)
+## 🔗Project
 
-## 🔗Link project
-
-- [Samueli924/chaoxing: 超星学习通/超星尔雅/泛雅超星全自动无人值守完成任务点(Github)](https://github.com/Samueli924/chaoxing)
+- 本 fork 仓库：[Jianqing-Lin/xxt](https://github.com/Jianqing-Lin/xxt)
+- 原始项目：[cyear/ice-study](https://github.com/cyear/ice-study)
+- 参考项目：[Samueli924/chaoxing: 超星学习通/超星尔雅/泛雅超星全自动无人值守完成任务点(Github)](https://github.com/Samueli924/chaoxing)

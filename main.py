@@ -4,12 +4,15 @@ from model.courses import Courses
 from model.course import Course
 from plug.Plug import Plug
 
-@Course
-@Courses
-@User
-@Plug
-@ice_study
+
 def main():
-    ...
+    ice = ice_study(main)
+    ice = Plug(ice)
+    user = User(ice)
+    courses = Courses(user)
+    Course(courses)
+    return ice
+
+
 if __name__ == "__main__":
-    main
+    main()

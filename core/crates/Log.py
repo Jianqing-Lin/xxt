@@ -72,12 +72,12 @@ class iLog:
         return n
     def _file(self, text, model):
         if self.file != None:
-            with open(self.file, "a+") as a:
+            with open(self.file, "a+", encoding="utf-8") as a:
                 a.write(text[7:-4]+"\n")
             file_size = os.path.getsize(self.file) / 1024
             if file_size > self.SIZE and model != "_file":
                 self.log(f"日志大小已到达: {round(file_size,2)}/{self.SIZE}KB 执行删除",2)
-                with open(self.file, "r+") as w:
+                with open(self.file, "r+", encoding="utf-8") as w:
                     w.truncate()
     def _c(self, text: str, hms: str, level: int, line: int, model: str, path: str):
         line = f":{line}" if self.LINE else ""

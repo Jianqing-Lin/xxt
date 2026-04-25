@@ -5,6 +5,7 @@ __pycache__/
 log.txt
 config/
 target/
+.tocodex/
 # C extensions
 *.so
 

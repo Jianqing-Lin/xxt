@@ -1,3 +1,4 @@
-httpx
-pyDes
+beautifulsoup4
 colorama
+httpx
+pycryptodome
