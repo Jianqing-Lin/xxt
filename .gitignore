@@ -6,6 +6,7 @@ log.txt
 config/
 target/
 .tocodex/
+debug/
 # C extensions
 *.so
 

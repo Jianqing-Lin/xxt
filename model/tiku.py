@@ -24,6 +24,8 @@ class TikuStore:
         self.use = use
         self.tokens = tokens or {}
         self.proxy = proxy
+        self.last_error = ""
+        self.last_payload = None
         self._init_db()
         self.import_legacy_problems()
 
@@ -48,15 +50,33 @@ class TikuStore:
                 """
             )
             conn.execute("CREATE INDEX IF NOT EXISTS idx_work_answers_question_norm ON work_answers(question_norm)")
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS work_answer_misses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    question_hash TEXT NOT NULL,
+                    question TEXT NOT NULL,
+                    question_norm TEXT NOT NULL,
+                    options_json TEXT NOT NULL,
+                    options_norm_json TEXT NOT NULL,
+                    type_code TEXT NOT NULL,
+                    reason TEXT NOT NULL DEFAULT '',
+                    source TEXT NOT NULL DEFAULT 'miss',
+                    updated_at INTEGER NOT NULL DEFAULT (strftime('%s','now'))
+                )
+                """
+            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_work_answer_misses_hash ON work_answer_misses(question_hash)")
 
     def stats(self) -> dict:
         with sqlite3.connect(self.db_path) as conn:
             tables = {row[0] for row in conn.execute("SELECT name FROM sqlite_master WHERE type='table'")}
             work_count = conn.execute("SELECT COUNT(*) FROM work_answers").fetchone()[0]
+            miss_count = conn.execute("SELECT COUNT(*) FROM work_answer_misses").fetchone()[0]
             legacy_count = 0
             if "problems" in tables:
                 legacy_count = conn.execute("SELECT COUNT(*) FROM problems").fetchone()[0]
-            return {"work_answers": work_count, "legacy_problems": legacy_count}
+            return {"work_answers": work_count, "work_answer_misses": miss_count, "legacy_problems": legacy_count}
 
     def import_legacy_problems(self) -> int:
         with sqlite3.connect(self.db_path) as conn:
@@ -137,6 +157,31 @@ class TikuStore:
                     return dict(candidate)
         return None
 
+    def save_missing(self, question: dict, reason: str = "", source: str = "miss"):
+        qhash = self.question_hash(question)
+        qnorm = self.normalize_text(question.get("title", ""))
+        options = list(question.get("options", []))
+        options_norm = self.normalized_options(question)
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute(
+                """
+                INSERT INTO work_answer_misses (
+                    question_hash, question, question_norm, options_json, options_norm_json,
+                    type_code, reason, source, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'))
+                """,
+                (
+                    qhash,
+                    question.get("title", ""),
+                    qnorm,
+                    json.dumps(options, ensure_ascii=False),
+                    json.dumps(options_norm, ensure_ascii=False),
+                    str(question.get("type_code", "")),
+                    reason,
+                    source,
+                ),
+            )
+
     def save(self, question: dict, answer: str, answer_text: str = "", source: str = "manual"):
         answer = str(answer or "").strip()
         if not answer:
@@ -173,7 +218,10 @@ class TikuStore:
             )
 
     def query_adapter(self, question: dict) -> Optional[dict]:
+        self.last_error = ""
+        self.last_payload = None
         if not self.adapter_url:
+            self.last_error = "adapter url empty"
             return None
         params = {"noRecord": "1"}
         if self.use:
@@ -186,13 +234,20 @@ class TikuStore:
             "options": self.normalized_options(question),
             "type": self.type_to_adapter(question.get("type_code", "")),
         }
-        with Http.Client(proxies=self.proxy, follow_redirects=True, timeout=12) as client:
-            response = client.post(self.adapter_url, params=params, json=payload)
+        try:
+            with Http.Client(proxies=self.proxy, follow_redirects=True, timeout=12) as client:
+                response = client.post(self.adapter_url, params=params, json=payload)
+        except Exception as exc:
+            self.last_error = f"adapter request failed: {exc}"
+            return None
         if response.status_code != 200:
+            self.last_error = f"adapter status {response.status_code}: {response.text[:200]}"
             return None
         try:
-            return response.json()
+            self.last_payload = response.json()
+            return self.last_payload
         except ValueError:
+            self.last_error = f"adapter invalid json: {response.text[:200]}"
             return None
 
     def is_answer_shape_valid(self, question: dict, answer: str) -> bool:
@@ -252,8 +307,8 @@ class TikuStore:
             return local.get("answer", ""), local.get("answer_text", ""), "local"
         payload = self.query_adapter(question)
         if not payload:
-            return "", "", "none"
+            return "", "", f"none:{self.last_error or 'adapter no payload'}"
         answer, answer_text = self.match_adapter_answer(question, payload)
         if self.is_answer_shape_valid(question, answer):
             return answer, answer_text, "adapter"
-        return "", answer_text, "adapter-empty"
+        return "", answer_text, "adapter-empty: answer not matched to question/options"

@@ -1,5 +1,6 @@
 import hashlib
 import json
+import os
 import random
 import re
 import time
@@ -306,6 +307,10 @@ class Course:
        )
        return headers
 
+   def clean_work_text(self, value: str) -> str:
+       value = re.sub(r"\s+", " ", value or "").strip()
+       return value[:-2].rstrip() if value.endswith("选择") else value
+
    def parse_work_questions(self, html_text: str) -> dict:
        soup = BeautifulSoup(html_text, "html.parser")
        form = soup.find("form")
@@ -318,30 +323,52 @@ class Course:
                continue
            fields[name] = node.get("value", "") if node.name == "input" else node.get_text("", strip=False)
        questions = []
-       for block in form.find_all("div", class_="singleQuesId"):
-           qid = block.get("data", "")
-           timu = block.find("div", class_="TiMu")
-           qtype_code = timu.get("data", "") if timu else ""
-           title_node = block.find("div", class_="Zy_TItle")
-           title = title_node.get_text(" ", strip=True) if title_node else qid
+       blocks = form.find_all("div", class_="singleQuesId")
+       if not blocks:
+           blocks = form.select("div[data]")
+       for index, block in enumerate(blocks, start=1):
+           qid = block.get("data") or block.get("data-id") or block.get("id") or str(index)
+           timu = block.find("div", class_="TiMu") or block.select_one("[data-type]")
+           qtype_code = ""
+           if timu is not None:
+               qtype_code = timu.get("data") or timu.get("data-type") or ""
+           if not qtype_code:
+               type_input = block.select_one("input[name^=answertype]")
+               qtype_code = type_input.get("value", "") if type_input else ""
+           title_node = (
+               block.find("div", class_="Zy_TItle")
+               or block.find("div", class_="clearfix")
+               or block.find("h3")
+               or block.find("p")
+           )
+           title = self.clean_work_text(title_node.get_text(" ", strip=True) if title_node else "")
+           if not title:
+               title = self.clean_work_text(block.get_text(" ", strip=True))[:300] or qid
            options = []
-           for li in block.select("ul li"):
+           option_nodes = block.select("ul li") or block.select(".answerList li") or block.select("label")
+           for li in option_nodes:
                text = li.get("aria-label") or li.get_text(" ", strip=True)
-               text = re.sub(r"\s+", " ", text).strip()
-               if text.endswith("选择"):
-                   text = text[:-2].rstrip()
+               text = self.clean_work_text(text)
                if text:
                    options.append(text)
            questions.append(
                {
                    "id": qid,
-                   "type_code": qtype_code,
+                   "type_code": str(qtype_code),
                    "title": title,
                    "options": options,
                }
            )
        fields["answerwqbid"] = ",".join(q["id"] for q in questions if q["id"]) + ("," if questions else "")
        return {"fields": fields, "questions": questions}
+
+   def save_work_debug_html(self, html_text: str, job: dict) -> str:
+       os.makedirs("debug", exist_ok=True)
+       safe_jobid = re.sub(r"[^A-Za-z0-9_.-]+", "_", job.get("jobid", "work"))
+       path = os.path.join("debug", f"work_{safe_jobid}_{int(time.time())}.html")
+       with open(path, "w", encoding="utf-8") as writer:
+           writer.write(html_text)
+       return path
 
    def tiku_work_answer(self, question: dict) -> tuple[str, str, str, str]:
        qid = question["id"]
@@ -385,8 +412,18 @@ class Course:
                return False
            parsed = self.parse_work_questions(response.text)
            questions = parsed["questions"]
+           self.iLog(f"Work parsed questions: {len(questions)} - {job.get('name', '')}")
+           for index, question in enumerate(questions, start=1):
+               self.iLog(
+                   f"Work question[{index}/{len(questions)}]: id={question.get('id', '')} "
+                   f"type={question.get('type_code', '')} title={question.get('title', '')} "
+                   f"options={question.get('options', [])}"
+               )
            if not questions:
+               debug_path = self.save_work_debug_html(response.text, job)
                self.iLog(f"Work has no questions or already finished: {job.get('name', '')}")
+               self.iLog(f"Work html preview: {response.text[:500]}", 0)
+               self.iLog(f"Work debug html saved: {debug_path}", 2)
                return True
            fields = parsed["fields"]
            answered = []
@@ -401,7 +438,12 @@ class Course:
                else:
                    fields[answer_name] = ""
                    missing.append(question)
-                   self.iLog(f"Work answer not found, will save only: {question.get('title', '')}", 2)
+                   reason = source or "unknown"
+                   self.tiku.save_missing(question, reason=reason, source="collect" if self.collect_tiku else "study")
+                   self.iLog(
+                       f"Work answer not found, will save only: {question.get('title', '')}; reason={reason}",
+                       2,
+                   )
                fields[answer_type_name] = question.get("type_code", "")
            total_questions = len(questions)
            answer_rate = 0 if total_questions == 0 else int(len(answered) * 100 / total_questions)
