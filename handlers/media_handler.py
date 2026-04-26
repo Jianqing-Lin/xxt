@@ -27,6 +27,7 @@ class MediaHandler:
     def get_media_headers(self, media_type: str) -> dict:
         headers = dict(self.headers)
         headers["Referer"] = Api.Video_Referer if media_type == "video" else Api.Audio_Referer
+        headers["Host"] = "mooc1.chaoxing.com"
         return headers
 
     def get_media_enc(self, classid: str, userid: str, job: dict, playing_time: int, duration: int) -> str:
@@ -70,7 +71,7 @@ class MediaHandler:
         response = self.task_client.get_media_status(
             job["objectid"],
             {
-                "k": self.get_fid(),
+                "k": job.get("mid", "") or self.get_fid(),
                 "flag": "normal",
             },
             self.get_media_headers(media_type),

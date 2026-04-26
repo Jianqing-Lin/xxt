@@ -21,6 +21,24 @@ class WorkHandler:
             writer.write(html_text)
         return path
 
+    def get_work_page_headers(self, course: dict, knowledgeid: str) -> dict:
+        headers = dict(self.headers_provider())
+        headers.update(
+            {
+                "Host": "mooc1.chaoxing.com",
+                "Referer": (
+                    "https://mooc1.chaoxing.com/mooc-ans/knowledge/cards?"
+                    f"clazzid={course['classid']}&courseid={course['courseid']}&knowledgeid={knowledgeid}"
+                    f"&ut=s&cpi={course.get('cpi', '')}&v=2025-0424-1038-3&mooc2=1"
+                ),
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+                "Upgrade-Insecure-Requests": "1",
+            }
+        )
+        headers.pop("X-Requested-With", None)
+        headers.pop("Content-Type", None)
+        return headers
+
     def infer_source_kind(self, parsed_source: str, job: dict, html_text: str) -> str:
         hints = "\n".join(
             str(part or "")
@@ -64,24 +82,31 @@ class WorkHandler:
         if not job.get("jobid"):
             self.log(f"Work job id missing: {job}", 2)
             return False
+        work_id = job["jobid"].replace("work-", "")
+        knowledgeid = str(job_info.get("knowledgeid", ""))
         params = {
             "api": "1",
-            "workId": job["jobid"].replace("work-", ""),
+            "workId": work_id,
             "jobid": job["jobid"],
             "originJobId": job["jobid"],
             "needRedirect": "true",
             "skipHeader": "true",
-            "knowledgeid": str(job_info.get("knowledgeid", "")),
+            "knowledgeid": knowledgeid,
             "ktoken": job_info.get("ktoken", ""),
             "cpi": job_info.get("cpi") or course.get("cpi", ""),
             "ut": "s",
             "clazzId": course["classid"],
+            "classId": course["classid"],
             "type": "",
             "enc": job.get("enc", ""),
             "mooc2": "1",
             "courseid": course["courseid"],
+            "courseId": course["courseid"],
         }
-        response = self.task_client.get_work_page(params)
+        try:
+            response = self.task_client.get_work_page(params, self.get_work_page_headers(course, knowledgeid))
+        except TypeError:
+            response = self.task_client.get_work_page(params)
         if response.status_code != 200:
             self.log(f"Work page failed: {response.status_code} {response.text[:200]}", 3)
             return False

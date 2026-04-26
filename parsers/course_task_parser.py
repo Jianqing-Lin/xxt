@@ -36,20 +36,59 @@ class CourseTaskParser:
     def parse_course_cards(self, html_text: str) -> tuple[list[dict], dict]:
         if "章节未开放" in html_text:
             return [], {"notOpen": True}
-        marker = "mArg ="
-        alt_marker = "mArg="
-        start = html_text.find(marker)
-        if start < 0:
-            start = html_text.find(alt_marker)
+        cards_data = None
+        for marker in ("mArg =", "mArg=", "window.AttachmentSetting =", "AttachmentSetting =", "attachments:"):
+            start = html_text.find(marker)
             if start < 0:
-                return [], {}
-        start = html_text.find("{", start)
-        end = html_text.find("};", start)
-        if start < 0 or end < 0:
-            return [], {}
-        try:
-            cards_data = json.loads(html_text[start:end + 1])
-        except json.JSONDecodeError:
+                continue
+            next_marker = html_text.find(marker, start + len(marker))
+            if next_marker >= 0 and next_marker - start < 300:
+                start = next_marker
+            assignment = html_text.find("=", start, start + 80)
+            if assignment >= 0:
+                start = assignment + 1
+            start = html_text.find("{", start)
+            if start < 0:
+                continue
+            depth = 0
+            in_string = False
+            escape = False
+            quote = ""
+            end = -1
+            for index in range(start, len(html_text)):
+                char = html_text[index]
+                if in_string:
+                    if escape:
+                        escape = False
+                    elif char == "\\":
+                        escape = True
+                    elif char == quote:
+                        in_string = False
+                    continue
+                if char == '"':
+                    in_string = True
+                    quote = char
+                    continue
+                if char == "{":
+                    depth += 1
+                elif char == "}":
+                    depth -= 1
+                    if depth == 0:
+                        end = index + 1
+                        break
+            if end < 0:
+                continue
+            raw_json = html_text[start:end]
+            try:
+                cards_data = json.loads(raw_json)
+                break
+            except json.JSONDecodeError:
+                try:
+                    cards_data = json.loads(raw_json.replace("'", '"'))
+                    break
+                except json.JSONDecodeError:
+                    continue
+        if cards_data is None:
             return [], {}
         defaults = cards_data.get("defaults", {})
         job_info = {
@@ -58,9 +97,10 @@ class CourseTaskParser:
             "knowledgeid": defaults.get("knowledgeid", ""),
         }
         jobs = []
-        for card in cards_data.get("attachments", []):
-            if card.get("isPassed"):
-                continue
+        attachments = cards_data.get("attachments", []) or cards_data.get("jobList", []) or cards_data.get("cards", [])
+        for card in attachments:
+            # In collect mode callers filter non-work jobs later. Keep passed media
+            # jobs parseable so study-mode diagnostics and interface checks can see them.
             card_type = str(card.get("type", "")).lower()
             if card.get("job") is None and card_type == "read" and not card.get("property", {}).get("read", False):
                 jobs.append(
@@ -92,7 +132,8 @@ class CourseTaskParser:
                 "attDurationEnc": card.get("attDurationEnc", ""),
                 "videoFaceCaptureEnc": card.get("videoFaceCaptureEnc", ""),
             }
-            if card_type == "workid":
+            if card_type in {"workid", "work", "quiz", "test"} or job.get("jobid", "").startswith("work-"):
+                job["type"] = "workid"
                 jobs.append(job)
                 continue
             if card_type in {"video", "document", "read", "audio"}:
@@ -145,6 +186,8 @@ class CourseTaskParser:
         questions = []
         blocks = form.find_all("div", class_="singleQuesId")
         if not blocks:
+            blocks = soup.find_all("div", class_="singleQuesId")
+        if not blocks:
             blocks = form.select("div[data]")
         for index, block in enumerate(blocks, start=1):
             qid = block.get("data") or block.get("data-id") or block.get("id") or str(index)
@@ -156,7 +199,19 @@ class CourseTaskParser:
                 type_input = block.select_one("input[name^=answertype]")
                 qtype_code = type_input.get("value", "") if type_input else ""
             title_node = block.find("div", class_="Zy_TItle") or block.find("div", class_="clearfix") or block.find("h3") or block.find("p")
-            title = self.clean_work_text(title_node.get_text(" ", strip=True) if title_node else "")
+            title_text = title_node.get_text(" ", strip=True) if title_node else ""
+            if not qtype_code:
+                if "多选题" in title_text:
+                    qtype_code = "1"
+                elif "判断题" in title_text:
+                    qtype_code = "3"
+                elif "单选题" in title_text:
+                    qtype_code = "0"
+                elif "填空题" in title_text:
+                    qtype_code = "2"
+                elif "简答题" in title_text or "问答题" in title_text:
+                    qtype_code = "4"
+            title = self.clean_work_text(title_text)
             if not title:
                 title = self.clean_work_text(block.get_text(" ", strip=True))[:300] or qid
             options = []

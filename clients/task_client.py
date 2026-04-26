@@ -18,11 +18,14 @@ class TaskClient:
     def get_document(self, params: dict):
         return self.client.get(Api.Job_Document, params=params)
 
-    def get_work_page(self, params: dict):
-        return self.client.get(Api.Work_Api, params=params)
+    def get_work_page(self, params: dict, headers: dict | None = None):
+        return self.client.get(Api.Work_Api, params=params, headers=headers)
 
     def submit_work(self, fields: dict, headers: dict):
         return self.client.post(Api.Work_Submit, data=fields, headers=headers)
+
+    def get_chapter_info(self, classid: str, courseid: str):
+        return self.client.get(Api.Course_Get_Info, params=Api.Course_Get_Info_fn(classid, courseid))
 
     def get_empty_page(self, params: dict):
         return self.client.get(Api.Course_Empty, params=params)
