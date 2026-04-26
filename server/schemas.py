@@ -18,6 +18,7 @@ class StartTaskRequest(BaseModel):
     course_indexes: list[int] = Field(default_factory=list)
     mode: str = "study"
     speed: Optional[float] = None
+    collect_threads: int = 1
     tiku_url: str = ""
     tiku_use: str = ""
     tiku_tokens: dict[str, str] = Field(default_factory=dict)
@@ -65,6 +66,10 @@ class TikuAnswerItem(BaseModel):
 
 class TikuListResponse(BaseModel):
     items: list[TikuAnswerItem] = Field(default_factory=list)
+    total: int = 0
+    limit: int = 100
+    offset: int = 0
+    has_more: bool = False
 
 
 class TikuCreateRequest(BaseModel):

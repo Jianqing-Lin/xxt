@@ -236,6 +236,44 @@ class TikuService:
             return str(value)
         return ""
 
+    def _extract_option_letters(self, value: str) -> list[str]:
+        return [char for char in re.findall(r"[A-Z]", str(value or "").upper()) if char in string.ascii_uppercase]
+
+    def _match_review_answer_to_options(self, question: dict, raw_text: str) -> list[str]:
+        candidates = self.split_answer_text(raw_text) or [self.normalize_text(raw_text)]
+        options = self.normalized_options(question)
+        matched = []
+        for candidate in candidates:
+            target = self.strip_option_prefix(candidate)
+            for index, option in enumerate(options):
+                if option == target:
+                    matched.append(string.ascii_uppercase[index])
+                    break
+        return matched
+
+    def answer_from_page_review(self, question: dict) -> tuple[str, str, str]:
+        if question.get("is_correct") is not True:
+            return "", "", "page-review:not-correct"
+        raw_text = self.normalize_text(question.get("my_answer_text", ""))
+        if not raw_text:
+            return "", "", "page-review:empty"
+        qtype = str(question.get("type_code", ""))
+        if qtype == "0":
+            letters = self._extract_option_letters(raw_text) or self._match_review_answer_to_options(question, raw_text)
+            answer = letters[0] if letters else ""
+            return answer, raw_text, "page-review"
+        if qtype == "1":
+            letters = self._extract_option_letters(raw_text) or self._match_review_answer_to_options(question, raw_text)
+            answer = "".join(sorted(set(letters)))
+            return answer, raw_text, "page-review"
+        if qtype == "3":
+            if re.search(r"正确|^对$|^是$|√|true", raw_text, re.I):
+                return "true", raw_text, "page-review"
+            if re.search(r"错误|^错$|^否$|×|false", raw_text, re.I):
+                return "false", raw_text, "page-review"
+            return "", raw_text, "page-review:unknown-judgement"
+        return raw_text, raw_text, "page-review"
+
     def match_adapter_answer(self, question: dict, payload: dict) -> tuple[str, str]:
         answer = self._payload_answer(payload)
         qtype = str(question.get("type_code", ""))

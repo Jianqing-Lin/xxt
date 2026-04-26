@@ -13,6 +13,7 @@ class WebIceProxy:
         self.speed = runtime.speed
         self.mode = runtime.mode
         self.collect_tiku = runtime.collect_tiku
+        self.collect_threads = runtime.collect_threads
         self.tiku_url = runtime.tiku_url
         self.tiku_use = runtime.tiku_use
         self.tiku_tokens = runtime.tiku_tokens
@@ -40,18 +41,20 @@ class WebTaskRunner:
     def __init__(self, emit_log=None):
         self.logger = WebLogger(emit=emit_log)
 
-    def run(self, *, username: str, password: str, course_indexes: list[int], mode: str, speed=None, tiku_url: str = "", tiku_use: str = "", tiku_tokens=None, collect_sources=None) -> dict:
+    def run(self, *, username: str, password: str, course_indexes: list[int], mode: str, speed=None, collect_threads: int = 1, tiku_url: str = "", tiku_use: str = "", tiku_tokens=None, collect_sources=None) -> dict:
         runtime = build_web_runtime(
             logger=self.logger.log,
             tiku_url=tiku_url,
             tiku_use=tiku_use,
             tiku_tokens=tiku_tokens or {},
             speed=speed,
+            collect_threads=collect_threads,
             mode=mode,
             collect_sources=collect_sources,
         )
         runtime.collect_tiku = mode == "collect"
         runtime.speed = 1.0 if runtime.collect_tiku else runtime.normalize_speed(speed or 1.0)
+        runtime.collect_threads = runtime.normalize_collect_threads(collect_threads)
         service = WebCourseService(emit_log=self.logger.log)
         cookie = service.login_and_get_cookie(username, password)
         repository = CourseRepository(runtime, cookie)

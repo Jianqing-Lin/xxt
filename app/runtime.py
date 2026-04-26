@@ -13,6 +13,7 @@ class RuntimeContext:
     speed: float = 1.0
     mode: str = "study"
     collect_tiku: bool = False
+    collect_threads: int = 1
     collect_sources: set[str] = field(default_factory=lambda: {"chapter_quiz", "homework", "exam", "unknown"})
     tiku_url: str = ""
     tiku_use: str = ""
@@ -32,6 +33,13 @@ class RuntimeContext:
         except (TypeError, ValueError):
             speed = 1.0
         return max(0.25, min(16.0, speed))
+
+    def normalize_collect_threads(self, value: Any) -> int:
+        try:
+            threads = int(value)
+        except (TypeError, ValueError):
+            threads = 1
+        return max(1, min(32, threads))
 
     def prompt_speed(self) -> float:
         try:

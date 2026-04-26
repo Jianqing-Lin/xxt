@@ -31,6 +31,9 @@
 - ✅ WebUI 课程选择、刷课、收录题库、日志查看
 - ✅ WebUI 题库 Provider 下拉选择
 - ✅ 第三方题库 Token 输入
+- ✅ 本地 8060 题库适配器
+- ✅ 题库分页 / 加载全部
+- ✅ 收录线程数配置
 
 ---
 
@@ -56,6 +59,10 @@ Windows 可使用：
 
     python webui.py
 
+启动本地题库适配器（推荐和 WebUI 一起开）：
+
+    python local_tiku_adapter.py
+
 或直接使用 uvicorn：
 
     uvicorn server.app:app --host 127.0.0.1 --port 8000
@@ -71,11 +78,56 @@ WebUI 当前支持：
 - 选择课程
 - 选择模式：刷课 / 收录题库
 - 设置倍速
+- 收录模式设置线程数
 - 设置题库 URL
 - 下拉选择题库 Provider / use
 - 选择第三方题库接口时填写 Token
 - 启动后台任务
 - 查看任务状态与运行日志
+- 题库分页查看 / 加载全部
+
+### 本地 8060 题库适配器
+
+本项目现在自带一个本地可用适配器：[`local_tiku_adapter.py`](local_tiku_adapter.py:1)
+
+默认地址：
+
+    http://127.0.0.1:8060/adapter-service/search
+
+健康检查：
+
+    http://127.0.0.1:8060/health
+
+推荐在 WebUI 中使用以下配置：
+
+- 题库 URL：`http://127.0.0.1:8060/adapter-service/search`
+- Provider / use：`local`
+
+说明：
+- 这个本地适配器会直接读取 [`cxtk.db`](cxtk.db)
+- 当本地库已有题目时，可直接给 WebUI 收录模式返回兼容答案
+- 对章节测验回看页，收录器还支持从页面的“我的答案”兜底收录
+
+### 收录模式说明
+
+收录题库模式现在有 3 个关键能力：
+
+1. 章节测验收录
+- 对“已完成回看页”，如果页面里能拿到：
+  - `我的答案`
+  - 正误标记
+  - 分数
+- 则会优先尝试把页面已知正确答案落库
+
+2. 收录线程数
+- 仅在 `collect` 模式显示
+- 可以手动填写线程数，建议先从 `1 ~ 8` 测试
+- 当前是 point / job 粒度并发，不影响普通刷课模式
+
+3. 题库管理分页
+- 默认按页加载，避免一次渲染几千条卡顿
+- 支持上一页 / 下一页
+- 支持“加载全部”，但数量特别大时不建议长期使用
 
 ### WebUI 题库 Token 说明
 
@@ -208,9 +260,32 @@ WebUI：
 
     python webui.py
 
+本地题库适配器：
+
+    python local_tiku_adapter.py
+
 如果只做题库工具：
 
     cargo run --release
+
+---
+
+## :package: GitHub Actions 打包 exe
+
+本项目已补充 GitHub Actions，可在 GitHub 上自动构建 Windows 可执行文件。
+
+建议流程：
+
+1. 推送代码到 GitHub
+2. 打开仓库的 `Actions`
+3. 运行 / 等待 Windows Build 工作流
+4. 在 Artifacts 中下载 exe 打包产物
+
+如果你想本地自行打包，也可以用 PyInstaller，例如：
+
+    pyinstaller -F main.py -n autumn-xxt-cli
+    pyinstaller -F webui.py -n autumn-xxt-webui
+    pyinstaller -F local_tiku_adapter.py -n autumn-xxt-tiku-adapter
 
 ---
 

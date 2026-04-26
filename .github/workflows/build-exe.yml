@@ -1,0 +1,50 @@
+name: build-exe
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements_win.txt
+          pip install pyinstaller
+
+      - name: Build executables
+        shell: cmd
+        run: |
+          pyinstaller -F main.py -n autumn-xxt-cli
+          pyinstaller -F webui.py -n autumn-xxt-webui
+          pyinstaller -F local_tiku_adapter.py -n autumn-xxt-tiku-adapter
+
+      - name: Prepare release bundle
+        shell: cmd
+        run: |
+          if not exist release mkdir release
+          copy dist\autumn-xxt-cli.exe release\autumn-xxt-cli.exe
+          copy dist\autumn-xxt-webui.exe release\autumn-xxt-webui.exe
+          copy dist\autumn-xxt-tiku-adapter.exe release\autumn-xxt-tiku-adapter.exe
+          if not exist release\config mkdir release\config
+          if not exist release\web mkdir release\web
+          xcopy /E /I /Y web release\web
+          copy README.md release\README.md
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: autumn-xxt-windows-exe
+          path: release/

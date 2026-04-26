@@ -72,13 +72,16 @@ class CourseStudyWorkflow:
                 self.log(response.text, 0)
                 return [], {}
             current_jobs, current_info = self.parser.parse_course_cards(response.text)
-            if self.collect_tiku and not current_jobs:
+            if self.collect_tiku and not current_jobs and not jobs:
                 preview = " ".join(response.text[:300].split())
                 self.log(f"Collect debug: no cards parsed for {point['title']} num={num}, preview={preview}", 0)
             if current_info.get("notOpen"):
                 return [], current_info
             jobs.extend(current_jobs)
-            job_info.update(current_info)
+            for key, value in current_info.items():
+                if value in (None, "", [], {}, ()):  # keep first non-empty runtime metadata
+                    continue
+                job_info[key] = value
         return self.parser.dedupe_jobs(jobs), job_info
 
     def dispatch_job(self, course: dict, point: dict, job: dict, job_info: dict):

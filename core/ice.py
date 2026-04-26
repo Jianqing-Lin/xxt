@@ -43,6 +43,7 @@ def build_runtime(version: str, args: dict, proxy, logger):
         speed=1.0,
         mode="study",
         collect_tiku=False,
+        collect_threads=1,
         tiku_url=args.get("tiku_url"),
         tiku_use=args.get("tiku_use"),
         tiku_tokens=parse_tiku_tokens(args.get("tiku_token", [])),
@@ -81,6 +82,7 @@ class ice_study:
         self.speed = self.runtime.speed
         self.mode = self.runtime.mode
         self.collect_tiku = self.runtime.collect_tiku
+        self.collect_threads = self.runtime.collect_threads
         self.tiku_url = self.runtime.tiku_url
         self.tiku_use = self.runtime.tiku_use
         self.tiku_tokens = self.runtime.tiku_tokens

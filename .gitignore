@@ -7,6 +7,10 @@ config/
 target/
 .tocodex/
 debug/
+config/
+test_smoke_tiku*.db
+*.db-shm
+*.db-wal
 # C extensions
 *.so
 
@@ -113,6 +117,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Build artifacts
+release/
 
 # Spyder project settings
 .spyderproject

@@ -23,9 +23,14 @@ def build_web_runtime(
     tiku_use: str = "",
     tiku_tokens=None,
     speed=None,
+    collect_threads=None,
     mode: str = "study",
     collect_sources=None,
 ):
+    try:
+        threads = int(collect_threads)
+    except (TypeError, ValueError):
+        threads = 1
     return RuntimeContext(
         version="web",
         debug=False,
@@ -34,6 +39,7 @@ def build_web_runtime(
         speed=1.0 if speed is None else float(speed),
         mode=mode,
         collect_tiku=mode == "collect",
+        collect_threads=max(1, min(32, threads)),
         collect_sources=set(collect_sources or {"chapter_quiz", "homework", "exam", "unknown"}),
         tiku_url=tiku_url,
         tiku_use=tiku_use,

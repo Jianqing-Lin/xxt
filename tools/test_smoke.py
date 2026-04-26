@@ -1,4 +1,5 @@
 import json
+import uuid
 import unittest
 from unittest.mock import patch
 
@@ -8,9 +9,11 @@ from auth.cookie_store import CookieStore
 from clients.session import SessionFactory
 from courses.course_repository import CourseRepository
 from handlers.work_handler import WorkHandler
+from local_tiku_adapter import build_adapter_answer_payload, select_best_candidate
 from model.tiku import TikuStore
 from parsers.course_parser import CourseParser
 from parsers.course_task_parser import CourseTaskParser
+from repositories.tiku_repository import TikuRepository
 from services.tiku_service import TikuService
 from workflow.course_workflow import CourseWorkflow
 from workflow.course_study_workflow import CourseStudyWorkflow
@@ -275,6 +278,47 @@ class SmokeAssemblyTest(unittest.TestCase):
         self.assertEqual(parsed["questions"][0]["source_kind"], "chapter_quiz")
         self.assertEqual(parsed["questions"][1]["type_code"], "3")
 
+    def test_course_task_parser_work_review_fields(self):
+        parser = CourseTaskParser()
+        html = """
+        <form>
+          <input name='title' value='章节测验第一章' />
+          <div class='singleQuesId' data='101'>
+            <div class='Zy_TItle'><span class='newZy_TItle'>【判断题】</span>宋太祖灭北汉后成功收复了燕云十六州。</div>
+            <div class='newAnswerBx'>
+              <div class='answerCon'>错</div>
+              <span class='marking_dui'></span>
+              <span class='scoreNum'>100.0</span>
+            </div>
+          </div>
+        </form>
+        """
+        parsed = parser.parse_work_questions(html)
+        question = parsed["questions"][0]
+        self.assertEqual(question["my_answer_text"], "错")
+        self.assertTrue(question["is_correct"])
+        self.assertEqual(question["score"], 100.0)
+
+    def test_course_task_parser_detects_chapter_quiz_from_review_page_text(self):
+        parser = CourseTaskParser()
+        html = """
+        <html>
+          <head><title>查看已批阅作业</title></head>
+          <body>
+            <form>
+            <div class='newTestTitle'><div class='TestTitle_name'>章节测验</div></div>
+            <div class='ceyan_name'><h3>第三章</h3></div>
+            <div class='singleQuesId' data='101'>
+              <div class='Zy_TItle'><span class='newZy_TItle'>【单选题】</span>测试题</div>
+              <ul><li>A. 甲</li><li>B. 乙</li></ul>
+            </div>
+            </form>
+          </body>
+        </html>
+        """
+        parsed = parser.parse_work_questions(html)
+        self.assertEqual(parsed["source_kind"], "chapter_quiz")
+
     def test_course_task_parser_not_open(self):
         parser = CourseTaskParser()
         jobs, info = parser.parse_course_cards("章节未开放")
@@ -314,6 +358,33 @@ class SmokeAssemblyTest(unittest.TestCase):
         q2 = {"id": "1", "title": "同题", "options": ["A. 甲"], "type_code": "0", "source_kind": "homework"}
         self.assertNotEqual(service.question_hash(q1), service.question_hash(q2))
 
+    def test_tiku_service_answer_from_page_review(self):
+        service = TikuService(db_path="test_smoke_tiku_service_review.db", adapter_url="", use="", tokens={})
+        single = {
+            "id": "1",
+            "type_code": "0",
+            "title": "单选题",
+            "options": ["A. 甲", "B. 乙", "C. 丙", "D. 丁"],
+            "source_kind": "chapter_quiz",
+            "my_answer_text": "D",
+            "is_correct": True,
+        }
+        judgement = {
+            "id": "2",
+            "type_code": "3",
+            "title": "判断题",
+            "options": [],
+            "source_kind": "chapter_quiz",
+            "my_answer_text": "错",
+            "is_correct": True,
+        }
+        answer1, _, source1 = service.answer_from_page_review(single)
+        answer2, _, source2 = service.answer_from_page_review(judgement)
+        self.assertEqual(answer1, "D")
+        self.assertEqual(answer2, "false")
+        self.assertEqual(source1, "page-review")
+        self.assertEqual(source2, "page-review")
+
     def test_tiku_adapter_client_reference_protocol_payload(self):
         client = TikuAdapterClient("https://example.test/query", use="TikuAdapter", tokens={"token": "abc"})
 
@@ -341,6 +412,42 @@ class SmokeAssemblyTest(unittest.TestCase):
             self.assertEqual(result["payload"]["question"], "题目")
             self.assertEqual(result["payload"]["provider"], "TikuAdapter")
             self.assertEqual(result["payload"]["token"], "abc")
+
+    def test_local_tiku_adapter_build_choice_payload(self):
+        payload = build_adapter_answer_payload(
+            {
+                "type_code": "1",
+                "answer": "BD",
+                "answer_text": "B. 第二项#D. 第四项",
+            }
+        )
+        self.assertEqual(payload["answerKey"], ["B", "D"])
+        self.assertIn("第四项", payload["answercontent"])
+
+    def test_local_tiku_adapter_build_judgement_payload(self):
+        payload = build_adapter_answer_payload(
+            {
+                "type_code": "3",
+                "answer": "true",
+                "answer_text": "",
+            }
+        )
+        self.assertEqual(payload["content"], "正确")
+
+    def test_local_tiku_adapter_selects_exact_option_match(self):
+        selected = select_best_candidate(
+            [
+                {"id": 1, "options_norm_json": json.dumps(["甲", "乙"], ensure_ascii=False), "correct_count": 9, "updated_at": 10},
+                {"id": 2, "options_norm_json": json.dumps(["甲", "丙"], ensure_ascii=False), "correct_count": 99, "updated_at": 99},
+            ],
+            ["甲", "乙"],
+        )
+        self.assertEqual(selected["id"], 1)
+
+    def test_tiku_repository_count_answers(self):
+        repository = TikuRepository("test_smoke_tiku_repo_count.db")
+        repository.init_db()
+        self.assertEqual(repository.count_answers(), 0)
 
     def test_work_handler_collect_mode_records_metadata(self):
         html = """
@@ -376,6 +483,107 @@ class SmokeAssemblyTest(unittest.TestCase):
         self.assertEqual(len(handler.tiku.saved), 1)
         self.assertEqual(handler.tiku.saved[0][1], "chapter_quiz")
         self.assertGreaterEqual(len(handler.tiku.missed), 1)
+
+    def test_work_handler_collect_mode_fallback_to_page_review(self):
+        html = """
+        <form>
+          <input name='title' value='章节测验第一章' />
+          <div class='singleQuesId' data='101'>
+            <div class='Zy_TItle'><span class='newZy_TItle'>【单选题】</span>测试题</div>
+            <ul><li>A. 甲</li><li>B. 乙</li><li>C. 丙</li><li>D. 丁</li></ul>
+            <div class='newAnswerBx'>
+              <div class='answerCon'>D</div>
+              <span class='marking_dui'></span>
+              <span class='scoreNum'>100.0</span>
+            </div>
+          </div>
+        </form>
+        """
+        db_path = f"test_smoke_tiku_handler_review_{uuid.uuid4().hex}.db"
+        handler = WorkHandler(
+            task_client=DummyTaskClientForWork(html),
+            tiku=TikuService(db_path=db_path, adapter_url="", use="", tokens={}),
+            parser=CourseTaskParser(),
+            logger=lambda *args, **kwargs: None,
+            collect_tiku=True,
+            headers_provider=lambda: {},
+        )
+        result = handler.handle(
+            course={"classid": "c1", "courseid": "c2", "cpi": "c3"},
+            job={"jobid": "work-1", "name": "章节测验", "enc": "enc"},
+            job_info={"knowledgeid": "kid", "ktoken": "kt", "cpi": "c3"},
+        )
+        self.assertTrue(result)
+        stored = handler.tiku.get_local({"id": "101", "title": "【单选题】 测试题", "options": ["A. 甲", "B. 乙", "C. 丙", "D. 丁"], "type_code": "0", "source_kind": "chapter_quiz"})
+        self.assertIsNotNone(stored)
+        self.assertEqual(stored["answer"], "D")
+
+    def test_course_study_workflow_collect_keeps_non_empty_job_info(self):
+        parser = CourseTaskParser()
+
+        class DummyTaskClient:
+            class Response:
+                def __init__(self, status_code, text, headers=None):
+                    self.status_code = status_code
+                    self.text = text
+                    self.headers = headers or {"content-type": "text/html;charset=UTF-8"}
+
+                def json(self):
+                    raise ValueError("not json")
+
+            def get_chapter_info(self, classid, courseid):
+                return self.Response(403, "<html>403</html>")
+
+            def get_job_cards(self, params, num):
+                responses = {
+                    "0": """
+                    <script>
+                    mArg = {
+                      "defaults": {"ktoken": "kt-live", "cpi": "cpi-live", "knowledgeid": "kid-live"},
+                      "attachments": [
+                        {"type": "video", "jobid": "video-1", "property": {"name": "视频任务", "objectid": "obj-1"}, "objectId": "obj-1"}
+                      ]
+                    };
+                    </script>
+                    """,
+                    "1": """
+                    <script>
+                    mArg = {
+                      "defaults": {"ktoken": "kt-live", "cpi": "cpi-live", "knowledgeid": "kid-live"},
+                      "attachments": [
+                        {"type": "workid", "jobid": "work-1", "enc": "enc-work", "property": {"name": "作业任务"}}
+                      ]
+                    };
+                    </script>
+                    """,
+                }
+                return self.Response(200, responses.get(num, "<html><body>empty</body></html>"))
+
+            def close(self):
+                return None
+
+        workflow = CourseStudyWorkflow(
+            parser=parser,
+            dispatcher=JobDispatcher({}, lambda *args, **kwargs: None),
+            task_client=DummyTaskClient(),
+            logger=lambda *args, **kwargs: None,
+            collect_tiku=True,
+        )
+        jobs, info = workflow.get_job_list(
+            {"classid": "class-1", "courseid": "course-1", "cpi": "cpi-course"},
+            {"id": "kid-point", "title": "第一章"},
+        )
+        self.assertEqual(info["ktoken"], "kt-live")
+        self.assertEqual(info["cpi"], "cpi-live")
+        self.assertEqual(info["knowledgeid"], "kid-live")
+        self.assertEqual(len(jobs), 2)
+        self.assertEqual(jobs[1]["type"], "workid")
+
+    def test_runtime_context_collect_threads_normalized(self):
+        runtime = RuntimeContext(version="test")
+        self.assertEqual(runtime.normalize_collect_threads("0"), 1)
+        self.assertEqual(runtime.normalize_collect_threads("99"), 32)
+        self.assertEqual(runtime.normalize_collect_threads("3"), 3)
 
     def test_course_workflow_close_propagates(self):
         repository = DummyRepository()

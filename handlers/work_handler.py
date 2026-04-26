@@ -2,6 +2,8 @@ import os
 import re
 import time
 
+from bs4 import BeautifulSoup
+
 
 class WorkHandler:
     def __init__(self, task_client, tiku, parser, logger, collect_tiku: bool, headers_provider, collect_sources=None):
@@ -40,6 +42,8 @@ class WorkHandler:
         return headers
 
     def infer_source_kind(self, parsed_source: str, job: dict, html_text: str) -> str:
+        soup = BeautifulSoup(html_text, "html.parser")
+        text_excerpt = " ".join(soup.get_text(" ", strip=True).split())[:6000]
         hints = "\n".join(
             str(part or "")
             for part in (
@@ -47,12 +51,12 @@ class WorkHandler:
                 job.get("name", ""),
                 job.get("jobid", ""),
                 job.get("otherinfo", ""),
-                html_text[:3000],
+                text_excerpt,
             )
         ).lower()
         if any(keyword in hints for keyword in ("章节测验", "章节测试", "课后", "chapter", "quiz", "练习")):
             return "chapter_quiz"
-        if any(keyword in hints for keyword in ("考试", "期中", "期末", "exam", "test")):
+        if any(keyword in hints for keyword in ("考试", "期中", "期末", "exam")):
             return "exam"
         if any(keyword in hints for keyword in ("作业", "homework", "work")):
             return "homework"
@@ -67,6 +71,21 @@ class WorkHandler:
             0 if source == "local" else 2,
         )
         return f"answer{qid}", answer, answer_text, source
+
+    def page_review_work_answer(self, question: dict) -> tuple[str, str, str]:
+        if not self.collect_tiku:
+            return "", "", ""
+        if not hasattr(self.tiku, "answer_from_page_review"):
+            return "", "", "page-review:unsupported"
+        answer, answer_text, source = self.tiku.answer_from_page_review(question)
+        if answer and self.tiku.is_answer_shape_valid(question, answer):
+            self.log(
+                f"Collect answer source=page-review[{question.get('source_kind', 'unknown')}/{question.get('type_code', '')}]: "
+                f"{question.get('title', '')} -> {answer}",
+                0,
+            )
+            return answer, answer_text, "page-review"
+        return "", answer_text, source
 
     def _record_collect_metadata(self, questions: list[dict], answered: list[tuple], missing: list[dict]):
         answered_by_hash = {self.tiku.question_hash(question): (question, answer, answer_text, source) for question, answer, answer_text, source in answered}
@@ -145,6 +164,10 @@ class WorkHandler:
         for question in questions:
             answer_name, answer, answer_text, source = self.tiku_work_answer(question)
             answer_type_name = f"answertype{question['id']}"
+            if not answer:
+                review_answer, review_answer_text, review_source = self.page_review_work_answer(question)
+                if review_answer:
+                    answer, answer_text, source = review_answer, review_answer_text, review_source
             if answer:
                 fields[answer_name] = answer
                 answered.append((question, answer, answer_text, source))

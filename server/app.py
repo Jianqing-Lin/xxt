@@ -69,7 +69,15 @@ def list_courses(payload: CourseListRequest):
 def list_tiku_answers(limit: int = 100, offset: int = 0):
     repository = TikuRepository()
     repository.init_db()
-    return TikuListResponse(items=repository.list_answers(limit=limit, offset=offset))
+    total = repository.count_answers()
+    items = repository.list_answers(limit=limit, offset=offset)
+    return TikuListResponse(
+        items=items,
+        total=total,
+        limit=limit,
+        offset=offset,
+        has_more=offset + len(items) < total,
+    )
 
 
 @app.post("/api/tiku/answers")
@@ -109,6 +117,7 @@ def start_task(payload: StartTaskRequest):
             course_indexes=payload.course_indexes,
             mode=payload.mode,
             speed=payload.speed,
+            collect_threads=payload.collect_threads,
             tiku_url=payload.tiku_url,
             tiku_use=payload.tiku_use,
             tiku_tokens=payload.tiku_tokens,

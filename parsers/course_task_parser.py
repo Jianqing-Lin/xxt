@@ -1,4 +1,5 @@
 import json
+import re
 from urllib.parse import parse_qs, urlparse
 
 from bs4 import BeautifulSoup
@@ -155,18 +156,31 @@ class CourseTaskParser:
         value = " ".join(str(value or "").split()).strip()
         return value[:-2].rstrip() if value.endswith("选择") else value
 
+    def parse_review_score(self, value: str):
+        value = self.clean_work_text(value)
+        if not value:
+            return None
+        matched = re.search(r"-?\d+(?:\.\d+)?", value)
+        if not matched:
+            return None
+        try:
+            return float(matched.group(0))
+        except ValueError:
+            return None
+
     def detect_source_kind(self, html_text: str, fields: dict, questions: list[dict]) -> str:
         soup = BeautifulSoup(html_text, "html.parser")
         visible_title = " ".join(
             node.get_text(" ", strip=True)
-            for node in soup.select("h1,h2,h3,.mark_title,.ZyTop h3,.Cy_TItle,.work-title,.tit,.title")
+            for node in soup.select("h1,h2,h3,.mark_title,.ZyTop h3,.Cy_TItle,.work-title,.tit,.title,.TestTitle_name,.newTestType,.ceyan_name")
         )
         field_text = " ".join(str(value) for value in fields.values())
-        title_parts = [fields.get("workAnswerId", ""), fields.get("title", ""), visible_title, field_text, html_text[:3000]]
+        text_excerpt = " ".join(soup.get_text(" ", strip=True).split())[:6000]
+        title_parts = [fields.get("workAnswerId", ""), fields.get("title", ""), visible_title, field_text, text_excerpt]
         content = "\n".join(str(part) for part in title_parts if part).lower()
         if any(keyword in content for keyword in ("章节测验", "章节测试", "课后", "chapter", "quiz", "练习")):
             return "chapter_quiz"
-        if any(keyword in content for keyword in ("考试", "期中", "期末", "exam", "test")):
+        if any(keyword in content for keyword in ("考试", "期中", "期末", "exam")):
             return "exam"
         if questions:
             return "homework"
@@ -221,12 +235,30 @@ class CourseTaskParser:
                 text = self.clean_work_text(text)
                 if text:
                     options.append(text)
+            review_box = block.select_one(".newAnswerBx")
+            my_answer_text = ""
+            is_correct = None
+            score = None
+            if review_box is not None:
+                answer_node = review_box.select_one(".answerCon")
+                if answer_node is not None:
+                    my_answer_text = self.clean_work_text(answer_node.get_text(" ", strip=True))
+                if review_box.select_one(".marking_dui") is not None:
+                    is_correct = True
+                elif review_box.select_one("[class*='marking_']") is not None:
+                    is_correct = False
+                score_node = review_box.select_one(".scoreNum")
+                if score_node is not None:
+                    score = self.parse_review_score(score_node.get_text(" ", strip=True))
             questions.append(
                 {
                     "id": qid,
                     "type_code": str(qtype_code),
                     "title": title,
                     "options": options,
+                    "my_answer_text": my_answer_text,
+                    "is_correct": is_correct,
+                    "score": score,
                 }
             )
         source_kind = self.detect_source_kind(html_text, fields, questions)
