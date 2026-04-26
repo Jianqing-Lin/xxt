@@ -21,6 +21,25 @@ class WorkHandler:
             writer.write(html_text)
         return path
 
+    def infer_source_kind(self, parsed_source: str, job: dict, html_text: str) -> str:
+        hints = "\n".join(
+            str(part or "")
+            for part in (
+                parsed_source,
+                job.get("name", ""),
+                job.get("jobid", ""),
+                job.get("otherinfo", ""),
+                html_text[:3000],
+            )
+        ).lower()
+        if any(keyword in hints for keyword in ("章节测验", "章节测试", "课后", "chapter", "quiz", "练习")):
+            return "chapter_quiz"
+        if any(keyword in hints for keyword in ("考试", "期中", "期末", "exam", "test")):
+            return "exam"
+        if any(keyword in hints for keyword in ("作业", "homework", "work")):
+            return "homework"
+        return parsed_source or "unknown"
+
     def tiku_work_answer(self, question: dict) -> tuple[str, str, str, str]:
         qid = question["id"]
         answer, answer_text, source = self.tiku.query(question)
@@ -71,8 +90,14 @@ class WorkHandler:
             return False
         parsed = self.parser.parse_work_questions(response.text)
         questions = parsed["questions"]
-        source_kind = parsed.get("source_kind", "unknown")
-        self.log(f"Work parsed questions: {len(questions)} - {job.get('name', '')} | source_kind={source_kind}")
+        parsed_source_kind = parsed.get("source_kind", "unknown")
+        source_kind = self.infer_source_kind(parsed_source_kind, job, response.text)
+        for question in questions:
+            question["source_kind"] = source_kind
+        self.log(
+            f"Work parsed questions: {len(questions)} - {job.get('name', '')} | "
+            f"source_kind={source_kind} parsed={parsed_source_kind}"
+        )
         if self.collect_tiku and self.collect_sources and source_kind not in self.collect_sources:
             self.log(f"Collect source skipped: {source_kind} not in {sorted(self.collect_sources)} - {job.get('name', '')}", 2)
             return True

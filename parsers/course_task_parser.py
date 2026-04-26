@@ -115,11 +115,17 @@ class CourseTaskParser:
         return value[:-2].rstrip() if value.endswith("选择") else value
 
     def detect_source_kind(self, html_text: str, fields: dict, questions: list[dict]) -> str:
-        title_parts = [fields.get("workAnswerId", ""), fields.get("title", ""), html_text[:1000]]
+        soup = BeautifulSoup(html_text, "html.parser")
+        visible_title = " ".join(
+            node.get_text(" ", strip=True)
+            for node in soup.select("h1,h2,h3,.mark_title,.ZyTop h3,.Cy_TItle,.work-title,.tit,.title")
+        )
+        field_text = " ".join(str(value) for value in fields.values())
+        title_parts = [fields.get("workAnswerId", ""), fields.get("title", ""), visible_title, field_text, html_text[:3000]]
         content = "\n".join(str(part) for part in title_parts if part).lower()
         if any(keyword in content for keyword in ("章节测验", "章节测试", "课后", "chapter", "quiz", "练习")):
             return "chapter_quiz"
-        if any(keyword in content for keyword in ("考试", "测验", "期中", "期末", "exam", "test")):
+        if any(keyword in content for keyword in ("考试", "期中", "期末", "exam", "test")):
             return "exam"
         if questions:
             return "homework"
