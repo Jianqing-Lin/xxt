@@ -2,9 +2,21 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from repositories.tiku_repository import TikuRepository
+from services.tiku_service import TikuService
 from server.course_service import WebCourseService
 from server.log_buffer import LogBuffer
-from server.schemas import CourseListRequest, CourseListResponse, LoginRequest, StartTaskRequest, TaskLogResponse, TaskStatusResponse
+from server.schemas import (
+    CourseListRequest,
+    CourseListResponse,
+    LoginRequest,
+    StartTaskRequest,
+    TaskLogResponse,
+    TaskStatusResponse,
+    TikuCreateRequest,
+    TikuDeleteResponse,
+    TikuListResponse,
+)
 from server.task_manager import TaskManager
 from server.task_runner import WebTaskRunner
 
@@ -51,6 +63,34 @@ def list_courses(payload: CourseListRequest):
     except SystemExit:
         return CourseListResponse(result=False, courses=[], raw="login or cookie validation failed")
     return CourseListResponse(result=bool(data.get("result")), courses=data.get("courses", []), raw=data.get("raw", ""))
+
+
+@app.get("/api/tiku/answers", response_model=TikuListResponse)
+def list_tiku_answers(limit: int = 100, offset: int = 0):
+    repository = TikuRepository()
+    repository.init_db()
+    return TikuListResponse(items=repository.list_answers(limit=limit, offset=offset))
+
+
+@app.post("/api/tiku/answers")
+def create_tiku_answer(payload: TikuCreateRequest):
+    service = TikuService(adapter_url="", use="")
+    question = {
+        "id": "web-manual",
+        "title": payload.question,
+        "type_code": payload.type_code,
+        "source_kind": payload.source_kind,
+        "options": payload.options,
+    }
+    service.save(question, payload.answer, payload.answer_text, source=payload.source)
+    return {"ok": True}
+
+
+@app.delete("/api/tiku/answers/{answer_id}", response_model=TikuDeleteResponse)
+def delete_tiku_answer(answer_id: int):
+    repository = TikuRepository()
+    repository.init_db()
+    return TikuDeleteResponse(ok=repository.delete_answer(answer_id), id=answer_id)
 
 
 @app.post("/api/tasks/start", response_model=TaskStatusResponse)

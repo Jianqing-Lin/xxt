@@ -15,7 +15,15 @@
     textarea { min-height: 70px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
     button { border: 0; border-radius: 8px; background: #2563eb; color: white; padding: 10px 14px; cursor: pointer; font-weight: 700; }
     button.secondary { background: #4b5563; }
+    button.danger { background: #dc2626; }
     button:disabled { background: #9ca3af; cursor: not-allowed; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 8px; text-align: left; vertical-align: top; }
+    .tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+    .tab { background: #374151; }
+    .tab.active { background: #2563eb; }
+    .page { display: none; }
+    .page.active { display: grid; gap: 16px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
     .courses { display: grid; gap: 8px; max-height: 320px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
@@ -31,90 +39,107 @@
   <h1>Autumn-xxt WebUI</h1>
 </header>
 <main>
-  <section>
-    <h2>账号与课程</h2>
-    <div class="row">
-      <div>
-        <label>账号</label>
-        <input id="username" autocomplete="username" />
-      </div>
-      <div>
-        <label>密码</label>
-        <input id="password" type="password" autocomplete="current-password" />
-      </div>
-    </div>
-    <div class="actions">
-      <button id="loadCourses">获取课程</button>
-      <button class="secondary" id="selectAll">全选课程</button>
-      <button class="secondary" id="clearAll">清空选择</button>
-    </div>
-    <p>课程状态：<span class="status" id="courseStatus">未加载</span></p>
-    <div class="courses" id="courses"></div>
-  </section>
+  <div class="tabs">
+    <button class="tab active" data-page="studyPage">刷课 / 收录</button>
+    <button class="tab" data-page="tikuPage">题库管理</button>
+  </div>
 
-  <section>
-    <h2>任务配置</h2>
-    <div class="row">
-      <div>
-        <label>模式</label>
-        <select id="mode">
-          <option value="study">刷课</option>
-          <option value="collect">收录题库</option>
-        </select>
+  <div id="studyPage" class="page active">
+    <section>
+      <h2>账号与课程</h2>
+      <div class="row">
+        <div><label>账号</label><input id="username" autocomplete="username" /></div>
+        <div><label>密码</label><input id="password" type="password" autocomplete="current-password" /></div>
       </div>
-      <div>
-        <label>倍速</label>
-        <input id="speed" type="number" min="0.25" max="16" step="0.25" value="1" />
+      <div class="actions">
+        <button id="loadCourses">获取课程</button>
+        <button class="secondary" id="selectAll">全选课程</button>
+        <button class="secondary" id="clearAll">清空选择</button>
       </div>
-    </div>
-    <div class="row">
-      <div>
-        <label>题库 URL</label>
-        <input id="tikuUrl" value="http://localhost:8060/adapter-service/search" />
-        <div class="hint">本地适配器可保留默认地址；第三方接口请填写服务地址。</div>
-      </div>
-      <div>
-        <label>题库 Provider / use</label>
-        <select id="tikuUse">
-          <option value="local">本地题库 local</option>
-          <option value="TikuAdapter" selected>TikuAdapter</option>
-          <option value="TikuYanxi">言溪题库 TikuYanxi</option>
-          <option value="TikuLike">LIKE 知识库 TikuLike</option>
-          <option value="AI">AI 兼容接口</option>
-          <option value="SiliconFlow">硅基流动 SiliconFlow</option>
-          <option value="custom">自定义 Provider</option>
-        </select>
-      </div>
-    </div>
-    <div class="row" id="customProviderRow" style="display:none">
-      <div>
-        <label>自定义 Provider / use</label>
-        <input id="customTikuUse" placeholder="例如 customProvider" />
-      </div>
-      <div></div>
-    </div>
-    <div id="thirdPartyTokenBox">
-      <label>第三方接口 Token</label>
-      <input id="thirdPartyToken" placeholder="填写 token；本地题库可留空" />
-      <div class="hint">选择第三方接口时会自动生成 Token JSON：<code>{"token":"..."}</code></div>
-    </div>
-    <label>题库 Token JSON（高级，可选）</label>
-    <textarea id="tikuTokens" placeholder='{"token":"xxx"}'>{}</textarea>
-    <div class="hint">
-      普通场景只填上面的“第三方接口 Token”即可；这里用于高级参数，例如
-      <code>{"token":"xxx"}</code>、<code>{"icodefToken":"xxx","buguakeToken":"yyy"}</code>。
-      后端会原样作为题库请求参数传入。
-    </div>
-    <div class="actions">
-      <button id="startTask">启动任务</button>
-    </div>
-    <p>任务状态：<span class="status" id="taskStatus">未启动</span></p>
-  </section>
+      <p>课程状态：<span class="status" id="courseStatus">未加载</span></p>
+      <div class="courses" id="courses"></div>
+    </section>
 
-  <section>
-    <h2>运行日志</h2>
-    <div class="log" id="logs"></div>
-  </section>
+    <section>
+      <h2>任务配置</h2>
+      <div class="row">
+        <div><label>模式</label><select id="mode"><option value="study">刷课</option><option value="collect">收录题库</option></select></div>
+        <div><label>倍速</label><input id="speed" type="number" min="0.25" max="16" step="0.25" value="1" /></div>
+      </div>
+      <div class="row">
+        <div><label>题库 URL</label><input id="tikuUrl" value="http://localhost:8060/adapter-service/search" /><div class="hint">本地适配器可保留默认地址；第三方接口请填写服务地址。</div></div>
+        <div>
+          <label>题库 Provider / use</label>
+          <select id="tikuUse">
+            <option value="local">本地题库 local</option>
+            <option value="TikuAdapter" selected>TikuAdapter</option>
+            <option value="TikuYanxi">言溪题库 TikuYanxi</option>
+            <option value="TikuLike">LIKE 知识库 TikuLike</option>
+            <option value="AI">AI 兼容接口</option>
+            <option value="SiliconFlow">硅基流动 SiliconFlow</option>
+            <option value="custom">自定义 Provider</option>
+          </select>
+        </div>
+      </div>
+      <div class="row" id="customProviderRow" style="display:none"><div><label>自定义 Provider / use</label><input id="customTikuUse" placeholder="例如 customProvider" /></div><div></div></div>
+      <div id="thirdPartyTokenBox"><label>第三方接口 Token</label><input id="thirdPartyToken" placeholder="填写 token；本地题库可留空" /><div class="hint">选择第三方接口时会自动生成 Token JSON：<code>{"token":"..."}</code></div></div>
+      <label>题库 Token JSON（高级，可选）</label>
+      <textarea id="tikuTokens" placeholder='{"token":"xxx"}'>{}</textarea>
+      <div class="hint">普通场景只填上面的“第三方接口 Token”即可；这里用于高级参数，例如 <code>{"token":"xxx"}</code>、<code>{"icodefToken":"xxx","buguakeToken":"yyy"}</code>。后端会原样作为题库请求参数传入。</div>
+      <div class="actions"><button id="startTask">启动任务</button></div>
+      <p>任务状态：<span class="status" id="taskStatus">未启动</span></p>
+    </section>
+
+    <section>
+      <h2>运行日志</h2>
+      <div class="log" id="logs"></div>
+    </section>
+  </div>
+
+  <div id="tikuPage" class="page">
+    <section>
+      <h2>题库管理</h2>
+      <div class="row">
+        <div><label>题目</label><textarea id="manualQuestion" placeholder="输入题目"></textarea></div>
+        <div><label>答案</label><textarea id="manualAnswer" placeholder="输入答案；单选/多选可填 A 或 AB"></textarea></div>
+      </div>
+      <div class="row">
+        <div>
+          <label>题型</label>
+          <select id="manualType">
+            <option value="0">单选</option>
+            <option value="1">多选</option>
+            <option value="2">填空</option>
+            <option value="3">判断</option>
+            <option value="4" selected>简答/其他</option>
+          </select>
+        </div>
+        <div>
+          <label>来源类型</label>
+          <select id="manualSourceKind">
+            <option value="manual" selected>手动</option>
+            <option value="homework">作业</option>
+            <option value="chapter_quiz">课后/章节测验</option>
+            <option value="exam">考试</option>
+            <option value="unknown">未知</option>
+          </select>
+        </div>
+      </div>
+      <label>选项 JSON（可选）</label>
+      <textarea id="manualOptions" placeholder='["A. 选项1","B. 选项2"]'>[]</textarea>
+      <div class="actions">
+        <button id="addTiku">增加题库</button>
+        <button class="secondary" id="refreshTiku">刷新列表</button>
+      </div>
+      <p>题库状态：<span class="status" id="tikuStatus">未加载</span></p>
+      <div style="overflow:auto">
+        <table>
+          <thead><tr><th>ID</th><th>题型</th><th>来源</th><th>题目</th><th>答案</th><th>操作</th></tr></thead>
+          <tbody id="tikuRows"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
 </main>
 <script>
 const $ = id => document.getElementById(id);
@@ -123,98 +148,85 @@ let taskId = null;
 let timer = null;
 const thirdPartyProviders = new Set(['TikuAdapter', 'TikuYanxi', 'TikuLike', 'AI', 'SiliconFlow', 'custom']);
 
-function selectedIndexes() {
-  return [...document.querySelectorAll('.course input:checked')].map(x => Number(x.value));
-}
-
-function providerValue() {
-  return $('tikuUse').value === 'custom' ? $('customTikuUse').value.trim() : $('tikuUse').value;
-}
-
+function selectedIndexes() { return [...document.querySelectorAll('.course input:checked')].map(x => Number(x.value)); }
+function providerValue() { return $('tikuUse').value === 'custom' ? $('customTikuUse').value.trim() : $('tikuUse').value; }
 function syncProviderUi() {
   const provider = $('tikuUse').value;
   $('customProviderRow').style.display = provider === 'custom' ? 'grid' : 'none';
   $('thirdPartyTokenBox').style.display = thirdPartyProviders.has(provider) && provider !== 'local' ? 'block' : 'none';
-  if (provider === 'local') {
-    $('tikuTokens').value = '{}';
-  } else if ($('thirdPartyToken').value.trim()) {
-    $('tikuTokens').value = JSON.stringify({ token: $('thirdPartyToken').value.trim() }, null, 2);
-  }
+  if (provider === 'local') $('tikuTokens').value = '{}';
+  else if ($('thirdPartyToken').value.trim()) $('tikuTokens').value = JSON.stringify({ token: $('thirdPartyToken').value.trim() }, null, 2);
 }
-
 function renderCourses(items) {
   courses = items || [];
-  $('courses').innerHTML = courses.map((c, i) => `
-    <label class="course">
-      <input type="checkbox" value="${i}" />
-      <span>${i}. ${c.classid} - ${c.name || ''} - ${c.teacher || ''}</span>
-    </label>
-  `).join('');
+  $('courses').innerHTML = courses.map((c, i) => `<label class="course"><input type="checkbox" value="${i}" /><span>${i}. ${c.classid} - ${c.name || ''} - ${c.teacher || ''}</span></label>`).join('');
 }
+function appendLog(lines) { $('logs').textContent = (lines || []).join('\n'); $('logs').scrollTop = $('logs').scrollHeight; }
+async function postJson(url, data) { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }); return await res.json(); }
 
-function appendLog(lines) {
-  $('logs').textContent = (lines || []).join('\n');
-  $('logs').scrollTop = $('logs').scrollHeight;
+for (const tab of document.querySelectorAll('.tab')) {
+  tab.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+    tab.classList.add('active');
+    $(tab.dataset.page).classList.add('active');
+    if (tab.dataset.page === 'tikuPage') loadTiku();
+  };
 }
-
-async function postJson(url, data) {
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data)
-  });
-  return await res.json();
-}
-
 $('tikuUse').onchange = syncProviderUi;
 $('thirdPartyToken').oninput = syncProviderUi;
-
 $('loadCourses').onclick = async () => {
   $('courseStatus').textContent = '加载中...';
-  const data = await postJson('/api/courses/list', {
-    username: $('username').value,
-    password: $('password').value
-  });
+  const data = await postJson('/api/courses/list', { username: $('username').value, password: $('password').value });
   renderCourses(data.courses || []);
   $('courseStatus').textContent = data.result ? `已加载 ${data.courses.length} 门课程` : '加载失败';
 };
-
 $('selectAll').onclick = () => document.querySelectorAll('.course input').forEach(x => x.checked = true);
 $('clearAll').onclick = () => document.querySelectorAll('.course input').forEach(x => x.checked = false);
-
 $('startTask').onclick = async () => {
   syncProviderUi();
   let tokens = {};
   try { tokens = JSON.parse($('tikuTokens').value || '{}'); } catch (e) { alert('题库 Token JSON 格式错误'); return; }
-  const data = await postJson('/api/tasks/start', {
-    username: $('username').value,
-    password: $('password').value,
-    course_indexes: selectedIndexes(),
-    mode: $('mode').value,
-    speed: Number($('speed').value || 1),
-    tiku_url: $('tikuUrl').value,
-    tiku_use: providerValue(),
-    tiku_tokens: tokens
-  });
+  const data = await postJson('/api/tasks/start', { username: $('username').value, password: $('password').value, course_indexes: selectedIndexes(), mode: $('mode').value, speed: Number($('speed').value || 1), tiku_url: $('tikuUrl').value, tiku_use: providerValue(), tiku_tokens: tokens });
   taskId = data.task_id;
   $('taskStatus').textContent = `${data.status} (${taskId})`;
   if (timer) clearInterval(timer);
   timer = setInterval(pollTask, 1500);
   await pollTask();
 };
-
 async function pollTask() {
   if (!taskId) return;
   const status = await fetch(`/api/tasks/${taskId}`).then(r => r.json());
   $('taskStatus').textContent = `${status.status} (${taskId})`;
   const logs = await fetch(`/api/tasks/${taskId}/logs`).then(r => r.json());
   appendLog(logs.logs || []);
-  if (['success', 'failed', 'not_found'].includes(status.status) && timer) {
-    clearInterval(timer);
-    timer = null;
-  }
+  if (['success', 'failed', 'not_found'].includes(status.status) && timer) { clearInterval(timer); timer = null; }
 }
-
+async function loadTiku() {
+  $('tikuStatus').textContent = '加载中...';
+  const data = await fetch('/api/tiku/answers?limit=100').then(r => r.json());
+  $('tikuRows').innerHTML = (data.items || []).map(item => `<tr><td>${item.id}</td><td>${item.type_code}</td><td>${item.source_kind}</td><td>${escapeHtml(item.question)}</td><td>${escapeHtml(item.answer)}</td><td><button class="danger" onclick="deleteTiku(${item.id})">删除</button></td></tr>`).join('');
+  $('tikuStatus').textContent = `已加载 ${(data.items || []).length} 条`;
+}
+$('refreshTiku').onclick = loadTiku;
+$('addTiku').onclick = async () => {
+  let options = [];
+  try { options = JSON.parse($('manualOptions').value || '[]'); } catch (e) { alert('选项 JSON 格式错误'); return; }
+  await postJson('/api/tiku/answers', { question: $('manualQuestion').value, answer: $('manualAnswer').value, type_code: $('manualType').value, source_kind: $('manualSourceKind').value, options });
+  $('manualQuestion').value = '';
+  $('manualAnswer').value = '';
+  await loadTiku();
+};
+async function deleteTiku(id) {
+  if (!confirm(`确认删除题库记录 ${id}？`)) return;
+  await fetch(`/api/tiku/answers/${id}`, { method: 'DELETE' });
+  await loadTiku();
+}
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = String(value || '');
+  return div.innerHTML;
+}
 syncProviderUi();
 </script>
 </body>

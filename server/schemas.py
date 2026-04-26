@@ -46,3 +46,34 @@ class CourseListResponse(BaseModel):
     result: bool
     courses: list[CourseItem] = Field(default_factory=list)
     raw: str = ""
+
+
+class TikuAnswerItem(BaseModel):
+    id: int
+    question: str
+    type_code: str
+    source_kind: str = "unknown"
+    answer: str
+    answer_text: str = ""
+    source: str = "local"
+    correct_count: int = 0
+    updated_at: int = 0
+
+
+class TikuListResponse(BaseModel):
+    items: list[TikuAnswerItem] = Field(default_factory=list)
+
+
+class TikuCreateRequest(BaseModel):
+    question: str
+    type_code: str = "4"
+    answer: str
+    answer_text: str = ""
+    source_kind: str = "manual"
+    source: str = "web-manual"
+    options: list[str] = Field(default_factory=list)
+
+
+class TikuDeleteResponse(BaseModel):
+    ok: bool
+    id: int

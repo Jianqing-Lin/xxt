@@ -103,6 +103,26 @@ class TikuRepository:
                 payload,
             )
 
+    def list_answers(self, limit: int = 100, offset: int = 0) -> list[dict]:
+        with self.connect() as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                """
+                SELECT id, question_hash, question, question_norm, options_json, options_norm_json,
+                       type_code, source_kind, answer, answer_text, source, correct_count, updated_at
+                FROM work_answers
+                ORDER BY updated_at DESC, id DESC
+                LIMIT ? OFFSET ?
+                """,
+                (limit, offset),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    def delete_answer(self, answer_id: int) -> bool:
+        with self.connect() as conn:
+            cursor = conn.execute("DELETE FROM work_answers WHERE id = ?", (int(answer_id),))
+            return cursor.rowcount > 0
+
     def upsert_answer(self, payload: tuple):
         with self.connect() as conn:
             conn.execute(
