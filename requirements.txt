@@ -1,3 +1,5 @@
 beautifulsoup4
+fastapi
 httpx
 pycryptodome
+uvicorn

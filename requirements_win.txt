@@ -1,4 +1,6 @@
 beautifulsoup4
 colorama
+fastapi
 httpx
 pycryptodome
+uvicorn
