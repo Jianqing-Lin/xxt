@@ -98,8 +98,13 @@
       <input id="thirdPartyToken" placeholder="填写 token；本地题库可留空" />
       <div class="hint">选择第三方接口时会自动生成 Token JSON：<code>{"token":"..."}</code></div>
     </div>
-    <label>题库 Token JSON（高级）</label>
+    <label>题库 Token JSON（高级，可选）</label>
     <textarea id="tikuTokens" placeholder='{"token":"xxx"}'>{}</textarea>
+    <div class="hint">
+      普通场景只填上面的“第三方接口 Token”即可；这里用于高级参数，例如
+      <code>{"token":"xxx"}</code>、<code>{"icodefToken":"xxx","buguakeToken":"yyy"}</code>。
+      后端会原样作为题库请求参数传入。
+    </div>
     <div class="actions">
       <button id="startTask">启动任务</button>
     </div>

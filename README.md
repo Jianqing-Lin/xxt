@@ -77,6 +77,28 @@ WebUI 当前支持：
 - 启动后台任务
 - 查看任务状态与运行日志
 
+### WebUI 题库 Token 说明
+
+WebUI 里有两个题库 Token 输入位置：
+
+1. `第三方接口 Token`
+   - 普通用户优先使用这个输入框。
+   - 适合 `TikuAdapter`、`TikuYanxi`、`TikuLike`、`AI`、`SiliconFlow` 等第三方接口。
+   - 填写后页面会自动生成高级 JSON：
+
+        {"token":"你的Token"}
+
+2. `题库 Token JSON（高级，可选）`
+   - 不是多余项，保留给高级接口参数使用。
+   - 后端会把这里的 JSON 原样作为 `tiku_tokens` 传入题库适配器。
+   - 适合需要多个 token 或特殊参数名的接口，例如：
+
+        {"token":"xxx"}
+        {"icodefToken":"xxx","buguakeToken":"yyy"}
+        {"api_key":"xxx"}
+
+   - 如果只使用本地题库 `local`，保持 `{}` 即可。
+
 ---
 
 ## :books: 题库使用方法(lib.rs注意修改)
