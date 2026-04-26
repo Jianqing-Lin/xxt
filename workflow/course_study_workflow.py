@@ -8,6 +8,8 @@ class CourseStudyWorkflow:
         self.task_client = task_client
         self.log = logger
         self.collect_tiku = collect_tiku
+        runtime = getattr(getattr(dispatcher, "runtime_holder", None), "runtime", None)
+        self.collect_sources = getattr(runtime, "collect_sources", {"chapter_quiz", "homework", "exam", "unknown"})
 
     def get_job_list(self, course: dict, point: dict) -> tuple[list[dict], dict]:
         params = {

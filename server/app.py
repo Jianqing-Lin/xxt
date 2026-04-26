@@ -112,6 +112,7 @@ def start_task(payload: StartTaskRequest):
             tiku_url=payload.tiku_url,
             tiku_use=payload.tiku_use,
             tiku_tokens=payload.tiku_tokens,
+            collect_sources=payload.collect_sources,
         )
 
     task_manager.run_background(run_real_task, task=task)

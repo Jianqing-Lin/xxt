@@ -21,6 +21,7 @@ class StartTaskRequest(BaseModel):
     tiku_url: str = ""
     tiku_use: str = ""
     tiku_tokens: dict[str, str] = Field(default_factory=dict)
+    collect_sources: list[str] = Field(default_factory=lambda: ["chapter_quiz", "homework", "exam", "unknown"])
 
 
 class TaskStatusResponse(BaseModel):
@@ -58,6 +59,8 @@ class TikuAnswerItem(BaseModel):
     source: str = "local"
     correct_count: int = 0
     updated_at: int = 0
+    options_json: str = ""
+    question_hash: str = ""
 
 
 class TikuListResponse(BaseModel):

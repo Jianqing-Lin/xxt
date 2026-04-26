@@ -16,6 +16,7 @@ class WebIceProxy:
         self.tiku_url = runtime.tiku_url
         self.tiku_use = runtime.tiku_use
         self.tiku_tokens = runtime.tiku_tokens
+        self.collect_sources = runtime.collect_sources
 
 
 class WebUserProxy:
@@ -39,7 +40,7 @@ class WebTaskRunner:
     def __init__(self, emit_log=None):
         self.logger = WebLogger(emit=emit_log)
 
-    def run(self, *, username: str, password: str, course_indexes: list[int], mode: str, speed=None, tiku_url: str = "", tiku_use: str = "", tiku_tokens=None) -> dict:
+    def run(self, *, username: str, password: str, course_indexes: list[int], mode: str, speed=None, tiku_url: str = "", tiku_use: str = "", tiku_tokens=None, collect_sources=None) -> dict:
         runtime = build_web_runtime(
             logger=self.logger.log,
             tiku_url=tiku_url,
@@ -47,6 +48,7 @@ class WebTaskRunner:
             tiku_tokens=tiku_tokens or {},
             speed=speed,
             mode=mode,
+            collect_sources=collect_sources,
         )
         runtime.collect_tiku = mode == "collect"
         runtime.speed = 1.0 if runtime.collect_tiku else runtime.normalize_speed(speed or 1.0)

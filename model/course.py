@@ -41,6 +41,7 @@ class Course:
            self.iLog,
            self.collect_tiku,
            self.get_work_headers,
+           collect_sources=getattr(self.runtime, "collect_sources", None),
        )
        self.media_handler = MediaHandler(
            self.task_client,
@@ -59,6 +60,7 @@ class Course:
            },
            self.iLog,
        )
+       self.dispatcher.runtime_holder = self
        self.study_workflow = CourseStudyWorkflow(
            parser=self.parser,
            dispatcher=self.dispatcher,

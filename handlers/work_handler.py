@@ -4,13 +4,14 @@ import time
 
 
 class WorkHandler:
-    def __init__(self, task_client, tiku, parser, logger, collect_tiku: bool, headers_provider):
+    def __init__(self, task_client, tiku, parser, logger, collect_tiku: bool, headers_provider, collect_sources=None):
         self.task_client = task_client
         self.tiku = tiku
         self.parser = parser
         self.log = logger
         self.collect_tiku = collect_tiku
         self.headers_provider = headers_provider
+        self.collect_sources = set(collect_sources or {"chapter_quiz", "homework", "exam", "unknown"})
 
     def save_work_debug_html(self, html_text: str, job: dict) -> str:
         os.makedirs("debug", exist_ok=True)
@@ -72,6 +73,9 @@ class WorkHandler:
         questions = parsed["questions"]
         source_kind = parsed.get("source_kind", "unknown")
         self.log(f"Work parsed questions: {len(questions)} - {job.get('name', '')} | source_kind={source_kind}")
+        if self.collect_tiku and self.collect_sources and source_kind not in self.collect_sources:
+            self.log(f"Collect source skipped: {source_kind} not in {sorted(self.collect_sources)} - {job.get('name', '')}", 2)
+            return True
         for index, question in enumerate(questions, start=1):
             self.log(
                 f"Work question[{index}/{len(questions)}]: id={question.get('id', '')} "

@@ -13,6 +13,7 @@ class RuntimeContext:
     speed: float = 1.0
     mode: str = "study"
     collect_tiku: bool = False
+    collect_sources: set[str] = field(default_factory=lambda: {"chapter_quiz", "homework", "exam", "unknown"})
     tiku_url: str = ""
     tiku_use: str = ""
     tiku_tokens: dict[str, str] = field(default_factory=dict)

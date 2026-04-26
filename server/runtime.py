@@ -15,7 +15,17 @@ class WebLogger:
         return True
 
 
-def build_web_runtime(logger=None, *, proxy=None, tiku_url: str = "", tiku_use: str = "", tiku_tokens=None, speed=None, mode: str = "study"):
+def build_web_runtime(
+    logger=None,
+    *,
+    proxy=None,
+    tiku_url: str = "",
+    tiku_use: str = "",
+    tiku_tokens=None,
+    speed=None,
+    mode: str = "study",
+    collect_sources=None,
+):
     return RuntimeContext(
         version="web",
         debug=False,
@@ -24,6 +34,7 @@ def build_web_runtime(logger=None, *, proxy=None, tiku_url: str = "", tiku_use: 
         speed=1.0 if speed is None else float(speed),
         mode=mode,
         collect_tiku=mode == "collect",
+        collect_sources=set(collect_sources or {"chapter_quiz", "homework", "exam", "unknown"}),
         tiku_url=tiku_url,
         tiku_use=tiku_use,
         tiku_tokens=tiku_tokens or {},
